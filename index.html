@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dot Clock</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚫</text></svg>">
+</head>
+
+<body>
+    <div class="app-container">
+        <nav class="mode-tabs">
+            <button class="tab-btn active" data-mode="ring">Ring</button>
+            <button class="tab-btn" data-mode="grid">Grid</button>
+        </nav>
+
+        <div id="mode-content" class="mode-content">
+            <!-- Content injected by JS -->
+            <div class="clock-container">
+                <div id="dot-ring" class="dot-ring"></div>
+                <div id="time-label" class="time-label"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="theme-toggle" class="control-btn" aria-label="Toggle Theme">
+                <span class="icon">◑</span>
+            </button>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="realism-toggle" checked>
+                    <span>Smooth Hour</span>
+                </label>
+                <button id="demo-btn" class="text-btn">Demo Minute</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
