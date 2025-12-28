@@ -96,10 +96,9 @@ body {
 
 .time-label {
     position: absolute;
-    bottom: -60px;
-    /* Below the clock */
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     font-size: 2rem;
     font-weight: 200;
     opacity: 0;
@@ -127,6 +126,14 @@ body {
 }
 
 /* Tabs */
+.mode-content {
+    min-height: var(--clock-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
 .mode-tabs {
     display: flex;
     background: var(--control-bg);
