@@ -172,6 +172,40 @@ body {
     height: calc(var(--clock-size) * 0.6);
     /* Aspect ratio 10:6 */
     padding: 20px;
+    position: relative;
+    /* Ensure overlapping absolute children work */
+}
+
+.grid-connector-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    /* Below dots (z-index implicit) or handling opacity overlap */
+    /* Let's allow dots to be on top. */
+}
+
+.connector-line {
+    stroke: var(--text-color);
+    /* Match the overlay dot color */
+    /* Grid Cell Width Calculation:
+       (Total Width - (9 gaps * 12px)) / 10 columns
+       Assumes width: var(--clock-size) is the content box. */
+    stroke-width: calc((var(--clock-size) - 108px) / 10);
+    stroke-linecap: round;
+    opacity: 1;
+    /* Solid lines for cleaner overlap */
+    transition: opacity 0.2s ease;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+[data-theme="dark"] .connector-line {
+    stroke: var(--text-color);
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+    opacity: 1;
 }
 
 .clock-grid .dot {
@@ -196,7 +230,8 @@ body {
 .clock-grid .dot.overlay-on {
     background-color: var(--text-color);
     /* Bright overlay color */
-    transform: scale(0.95);
+    transform: scale(1);
+    /* Full size to match line width */
     opacity: 1;
 }
 

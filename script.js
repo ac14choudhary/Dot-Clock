@@ -287,6 +287,11 @@ class GridMode {
         this.root.className = 'clock-grid';
         container.appendChild(this.root);
 
+        // SVG Layer for connectors
+        this.svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.svgLayer.classList.add('grid-connector-layer');
+        this.root.appendChild(this.svgLayer);
+
         this.dots = [];
         this.init();
 
@@ -330,12 +335,17 @@ class GridMode {
     }
 
     render(now) {
-        // Clear all
+        // Clear all visuals
         this.dots.forEach(d => {
             d.classList.remove('active-second', 'overlay-on');
             d.style.transform = '';
             d.style.opacity = '';
         });
+
+        // Clear SVG
+        while (this.svgLayer.firstChild) {
+            this.svgLayer.removeChild(this.svgLayer.firstChild);
+        }
 
         if (this.isOverlay) {
             this.renderOverlay(now);
@@ -359,18 +369,6 @@ class GridMode {
         const displayH = (h % 12 || 12).toString();
         const displayM = m.toString().padStart(2, '0');
 
-        // Layout Strategy for 10 columns:
-        // Use narrow '1' if possible.
-        // If H>=10 (e.g. 10, 11, 12):
-        //   '1' (narrow, 1px) + gap(0) + '0-2' (3px) + gap(0) + ':' (1px) + gap(0) + 'M' (3px) + gap(-1?) + 'M' (3px)
-        //   Total needed: 1 + 3 + 1 + 3 + 3 = 11. 
-        //   We have 10.
-        //   We must overlap the last digit or colon.
-        //   OR: we suppress the colon?
-        //   '1' (1) '2' (3) '4' (3) '5' (3) = 10px. 
-        //   So "1245" fits perfectly in 10 cols.
-        //   Let's try to remove colon if total width > 10.
-
         let chars = [];
         if (displayH.length > 1) {
             chars.push(displayH[0]);
@@ -379,10 +377,6 @@ class GridMode {
             chars.push(displayH[0]);
         }
 
-        // Check if we can fit colon
-        // H < 10: "H:MM" -> 3 + 1 + 3 + 3 = 10. Fit! (Space is tight, no gaps)
-        // H >= 10: "12:MM" -> 1 + 3 + 1 + 3 + 3 = 11. No fit.
-        // Logic: if H >= 10, drop colon.
         if (displayH.length < 2) {
             chars.push(':');
         }
@@ -408,11 +402,27 @@ class GridMode {
         let cursorX = Math.floor((10 - totalW) / 2);
         if (cursorX < 0) cursorX = 0;
 
-        // Render Loop
+        // Use DOM-based positioning for perfect centering
+        const getCenter = (tx, ty) => {
+            if (tx < 0 || tx >= 10 || ty < 0 || ty >= 6) return null;
+            const idx = ty * 10 + tx;
+            const dot = this.dots[idx];
+            if (!dot) return null;
+
+            // offsetLeft/Top are relative to the grid container
+            // We need center, so add half width/height
+            return {
+                x: dot.offsetLeft + dot.offsetWidth / 2,
+                y: dot.offsetTop + dot.offsetHeight / 2
+            };
+        };
+
+        // Process each character independently
         sequence.forEach(item => {
             const matrix = FONT_3x5[item.key];
             if (!matrix) return;
 
+            // 1. Draw Dots for this char
             for (let r = 0; r < 5; r++) {
                 for (let c = 0; c < item.w; c++) {
                     if (matrix[r][c] === 1) {
@@ -428,8 +438,47 @@ class GridMode {
                     }
                 }
             }
+
+            // 2. Draw Connections INTERNAL to this char
+            // This prevents lines bridging between digits
+            for (let r = 0; r < 5; r++) {
+                for (let c = 0; c < item.w; c++) {
+                    if (matrix[r][c] === 1) {
+                        const startXVal = cursorX + c;
+                        const startYVal = r + 1;
+                        const p1 = getCenter(startXVal, startYVal);
+                        if (!p1) continue;
+
+                        // Check Right (within char bounds items.w)
+                        if (c + 1 < item.w && matrix[r][c + 1] === 1) {
+                            // Draw Horiz Line
+                            const p2 = getCenter(startXVal + 1, startYVal);
+                            if (p2) this.drawLine(p1.x, p1.y, p2.x, p2.y);
+                        }
+
+                        // Check Down (within char bounds 5)
+                        if (r + 1 < 5 && matrix[r + 1][c] === 1) {
+                            // Draw Vert Line
+                            const p2 = getCenter(startXVal, startYVal + 1);
+                            if (p2) this.drawLine(p1.x, p1.y, p2.x, p2.y);
+                        }
+                    }
+                }
+            }
+
+            // Advance cursor
             cursorX += item.w;
         });
+    }
+
+    drawLine(x1, y1, x2, y2) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.classList.add("connector-line");
+        this.svgLayer.appendChild(line);
     }
 }
 
