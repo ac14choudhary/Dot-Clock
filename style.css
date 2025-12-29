@@ -66,7 +66,33 @@ body {
     background-color: var(--dot-color);
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+    /* Smooth movement and color changes */
+    transition:
+        left 0.6s ease-in-out,
+        top 0.6s ease-in-out,
+        transform 0.4s ease,
+        background-color 0.2s ease,
+        opacity 0.2s ease;
+    will-change: left, top, transform;
+}
+
+/* ... */
+
+/* Grid Mode Styles */
+.clock-grid {
+    /* We now use absolute positioning for dots in grid mode too */
+    position: relative;
+    width: var(--clock-size);
+    height: calc(var(--clock-size) * 0.6);
+    /* Aspect ratio 10:6 */
+    padding: 20px;
+    margin: 0 auto;
+}
+
+.clock-grid .dot {
+    /* Inherit default dot styles (absolute, centered transform) */
+    /* Specialize scaling for grid mode look */
+    transform: translate(-50%, -50%) scale(0.4);
 }
 
 /* Active second dot style */
@@ -74,6 +100,8 @@ body {
     background-color: var(--dot-active-color);
     transform: translate(-50%, -50%) scale(1.3);
     z-index: 10;
+    transition: none;
+    /* Critical: Cursor must follow JS instantly without lag */
 }
 
 /* Timestamp mode styles */
@@ -134,6 +162,79 @@ body {
     width: 100%;
 }
 
+/* Tabs & Header */
+.nav-header {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: var(--clock-size);
+    height: 40px;
+    /* Explicit height to contain absolute button */
+}
+
+/* Theme toggle positioned absolutely within header */
+.nav-header #theme-toggle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1rem;
+    background: var(--control-bg);
+    border: 1px solid var(--control-border);
+    border-radius: 50%;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    /* Mask animations */
+}
+
+.theme-icon-container {
+    position: relative;
+    width: 20px;
+    height: 20px;
+}
+
+.theme-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    color: var(--text-color);
+}
+
+/* Sun State (Default Light) */
+.sun {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+.moon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+/* Moon State (Dark Mode) */
+[data-theme="dark"] .sun {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+[data-theme="dark"] .moon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
 .mode-tabs {
     display: flex;
     background: var(--control-bg);
@@ -164,10 +265,7 @@ body {
 
 /* Grid Mode Styles */
 .clock-grid {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    grid-template-rows: repeat(6, 1fr);
-    gap: 12px;
+    /* Grid layout handled by JS now */
     width: var(--clock-size);
     height: calc(var(--clock-size) * 0.6);
     /* Aspect ratio 10:6 */
@@ -208,23 +306,13 @@ body {
     opacity: 1;
 }
 
-.clock-grid .dot {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background-color: var(--dot-color);
-    border-radius: 50%;
-    transform: scale(0.4);
-    /* Default small dots */
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
-    left: auto;
-    top: auto;
-}
+/* Old grid dot rules removed */
 
 .clock-grid .dot.active-second {
-    background-color: var(--dot-active-color);
-    transform: scale(0.9);
-    box-shadow: 0 0 15px var(--dot-active-color);
+    background-color: var(--dot-active-color) !important;
+    transform: translate(-50%, -50%) scale(1.3);
+    z-index: 20;
+    /* Ensure on top */
 }
 
 .clock-grid .dot.overlay-on {
@@ -233,6 +321,25 @@ body {
     transform: scale(1);
     /* Full size to match line width */
     opacity: 1;
+}
+
+/* Independent Grid Cursor */
+.grid-cursor {
+    position: absolute;
+    width: var(--dot-size);
+    height: var(--dot-size);
+    background-color: var(--dot-active-color);
+    /* Always blue */
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1.3);
+    z-index: 30;
+    /* Above everything (dots=auto/z10, connections=10, overlay=20) */
+    pointer-events: none;
+    transition: left 0.1s ease, top 0.1s ease;
+    /* Slight smoothing for layout changes, snappy for ticks */
+    box-shadow: 0 0 15px var(--dot-active-color);
+    /* User liked the glow, or we can match ring cursor (flat)? User said "active dot animation" - previously had glow. Let's keep it clean like Ring first. Ring cursor has NO shadow now. */
+    /* Re-reading: "match it with the color of the second cursor in the ring view". Ring cursor has no shadow. So no shadow here. */
 }
 
 /* Override existing controls */
