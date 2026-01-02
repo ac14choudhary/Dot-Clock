@@ -186,7 +186,12 @@ class RingMode {
 
         // Show cursor specific to Ring
         this.cursorDot.style.opacity = '1';
+        this.cursorDot.style.opacity = '1';
         this.lastMinute = new Date().getMinutes();
+
+        // Show time label immediately
+        this.app.timeLabel.classList.add('visible');
+        this.updateTimeLabel(new Date());
     }
 
     leave() {
@@ -207,9 +212,17 @@ class RingMode {
         const m = date.getMinutes();
         const displayH = h % 12 || 12;
         const displayM = m.toString().padStart(2, '0');
-        this.app.timeLabel.textContent = `${displayH}:${displayM}`;
-        this.app.timeLabel.classList.add('visible');
+        this.app.timeLabel.classList.add('visible'); // Ensure visible
+        this.updateTimeLabel(date); // Update text immediately
         this.cursorDot.style.opacity = '0';
+    }
+
+    updateTimeLabel(date) {
+        const h = date.getHours();
+        const m = date.getMinutes();
+        const displayH = h % 12 || 12;
+        const displayM = m.toString().padStart(2, '0');
+        this.app.timeLabel.textContent = `${displayH}:${displayM}`;
     }
 
     update(now) {
@@ -219,9 +232,12 @@ class RingMode {
         }
         this.lastMinute = currentMinute;
 
+        // Always update time label in Ring Mode
+        this.updateTimeLabel(now);
+
         if (this.isTimestampMode && Date.now() > this.timestampEndTime) {
             this.isTimestampMode = false;
-            this.app.timeLabel.classList.remove('visible');
+            // distinct from label visibility
             this.cursorDot.style.opacity = '1';
         }
     }
