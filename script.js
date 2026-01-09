@@ -19,6 +19,11 @@ const FONT_3x5 = {
     ':': [[0], [1], [0], [1], [0]]
 };
 
+
+// State Constants
+const STATE_NORMAL = 'normal';
+const STATE_TIMESTAMP = 'timestamp';
+
 class DotClockApp {
     constructor() {
         this.currentMode = null;
@@ -162,14 +167,20 @@ class RingMode {
         this.cursorDot.style.zIndex = '50';
         app.dotRingContainer.appendChild(this.cursorDot);
 
-        // smoothHour is now default behavior (removed flag)
-
-        this.isTimestampMode = false;
+        // State Machine
+        this.currentState = STATE_NORMAL;
         this.timestampEndTime = 0;
         this.lastMinute = null;
+
+        // SVG Layer for Ring Connectors
+        this.svgRingLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        this.svgRingLayer.classList.add('ring-connector-layer');
     }
 
     enter() {
+        // Append SVG
+        this.app.clockContainer.appendChild(this.svgRingLayer);
+
         // Apply Circular Layout
         const r = 48; // Radius %
         this.dots.forEach((dot, i) => {
@@ -186,8 +197,10 @@ class RingMode {
 
         // Show cursor specific to Ring
         this.cursorDot.style.opacity = '1';
-        this.cursorDot.style.opacity = '1';
         this.lastMinute = new Date().getMinutes();
+
+        // Default to normal state on enter
+        this.enterNormalState();
 
         // Show time label immediately
         this.app.timeLabel.classList.add('visible');
@@ -198,23 +211,36 @@ class RingMode {
         // Hide UI specific to Ring
         this.cursorDot.style.opacity = '0';
         this.app.timeLabel.classList.remove('visible');
+
+        if (this.svgRingLayer.parentNode) this.svgRingLayer.parentNode.removeChild(this.svgRingLayer);
+
+        // Clear SVG
+        while (this.svgRingLayer.firstChild) this.svgRingLayer.removeChild(this.svgRingLayer.firstChild);
     }
 
     startDemo() {
-        this.triggerTimestampEffect(new Date());
+        this.enterTimestampState();
     }
 
-    triggerTimestampEffect(date) {
-        this.isTimestampMode = true;
-        this.timestampEndTime = Date.now() + 2000;
+    // --- State Management ---
 
-        const h = date.getHours();
-        const m = date.getMinutes();
-        const displayH = h % 12 || 12;
-        const displayM = m.toString().padStart(2, '0');
-        this.app.timeLabel.classList.add('visible'); // Ensure visible
-        this.updateTimeLabel(date); // Update text immediately
-        this.cursorDot.style.opacity = '0';
+    enterNormalState() {
+        this.currentState = STATE_NORMAL;
+        this.cursorDot.style.opacity = '1';
+        this.app.timeLabel.classList.add('visible');
+
+        // Clear connectors
+        while (this.svgRingLayer.firstChild) this.svgRingLayer.removeChild(this.svgRingLayer.firstChild);
+    }
+
+    enterTimestampState() {
+        this.currentState = STATE_TIMESTAMP;
+        this.timestampEndTime = Date.now() + 2000;
+        this.cursorDot.style.opacity = '0'; // Hide cursor in timestamp details if desired?
+        // Original code hid cursor in timestamp mode: this.cursorDot.style.opacity = '0';
+
+        // Ensure accurate time update immediately
+        this.updateTimeLabel(new Date());
     }
 
     updateTimeLabel(date) {
@@ -227,18 +253,19 @@ class RingMode {
 
     update(now) {
         const currentMinute = now.getMinutes();
+
+        // Check for minute change -> Trigger Timestamp State
         if (this.lastMinute !== null && currentMinute !== this.lastMinute) {
-            this.triggerTimestampEffect(now);
+            this.enterTimestampState();
         }
         this.lastMinute = currentMinute;
 
         // Always update time label in Ring Mode
         this.updateTimeLabel(now);
 
-        if (this.isTimestampMode && Date.now() > this.timestampEndTime) {
-            this.isTimestampMode = false;
-            // distinct from label visibility
-            this.cursorDot.style.opacity = '1';
+        // State Transition Logic
+        if (this.currentState === STATE_TIMESTAMP && Date.now() > this.timestampEndTime) {
+            this.enterNormalState();
         }
     }
 
@@ -251,14 +278,14 @@ class RingMode {
             d.style.opacity = '';
         });
 
-        if (this.isTimestampMode) {
-            this.renderTimestampMode(now);
+        if (this.currentState === STATE_TIMESTAMP) {
+            this.renderTimestampState(now);
         } else {
-            this.renderNormalMode(now);
+            this.renderNormalState(now);
         }
     }
 
-    renderNormalMode(now) {
+    renderNormalState(now) {
         const ms = now.getMilliseconds();
         const s = now.getSeconds();
         const totalSeconds = s + (ms / 1000);
@@ -275,25 +302,84 @@ class RingMode {
         }
     }
 
-    renderTimestampMode(now) {
+    renderTimestampState(now) {
         const h = now.getHours();
         const m = now.getMinutes();
 
-        // Always use smooth hour logic
-        let hRaw = (h % 12) * 5 + (m / 12);
-        const hIndex = Math.round(hRaw) % 60;
+        // Calculate Hour Block
+        // User requested 11 to be 50-54 (before last 5).
+        // Standard mapping: 12 is top.
+        // Logic: h=1 -> 0-4. h=11 -> 50-54. h=12/0 -> 55-59.
+        let h12 = h % 12;
+        if (h12 === 0) h12 = 12; // Treat 0 and 12 as 12th block
+
+        // (12 -> 11, 1 -> 0, 11 -> 10)
+        const blockStartIndex = (h12 - 1) * 5;
 
         const mDot = this.dots[m];
-        const hDot = this.dots[hIndex];
 
-        if (mDot) mDot.classList.add('timestamp-highlight');
-        if (hDot) hDot.classList.add('timestamp-highlight');
-
+        // Reset all dots to dim first
         this.dots.forEach(d => {
-            if (d !== mDot && d !== hDot) d.classList.add('timestamp-dim');
+            d.classList.add('timestamp-dim');
+            d.classList.remove('timestamp-highlight');
+            d.classList.remove('overlap');
         });
 
-        if (m === hIndex && mDot) mDot.classList.add('overlap');
+        // Clear existing connectors
+        while (this.svgRingLayer.firstChild) this.svgRingLayer.removeChild(this.svgRingLayer.firstChild);
+
+        // Highlight Hour Block (5 dots) and Connect them
+        for (let i = 0; i < 5; i++) {
+            const dotIndex = (blockStartIndex + i) % 60;
+            const dot = this.dots[dotIndex];
+            if (dot) {
+                dot.classList.remove('timestamp-dim');
+                dot.classList.add('timestamp-highlight');
+
+                // Connect to next dot in the block (if not the last one)
+                if (i < 4) {
+                    const nextDotIndex = (blockStartIndex + i + 1) % 60;
+                    const nextDot = this.dots[nextDotIndex];
+                    if (nextDot) {
+                        this.drawRingLine(dot, nextDot);
+                    }
+                }
+            }
+        }
+
+        // Highlight Minute Dot
+        if (mDot) {
+            mDot.classList.remove('timestamp-dim');
+            mDot.classList.add('timestamp-highlight');
+
+            // Check for overlap
+            if (m >= blockStartIndex && m < blockStartIndex + 5) {
+                mDot.classList.add('overlap');
+            }
+        }
+    }
+
+    drawRingLine(dot1, dot2) {
+        // dots are centered by transform, so offsetLeft/Top is the center position (pre-transform origin).
+        const x1 = dot1.offsetLeft;
+        const y1 = dot1.offsetTop;
+        const x2 = dot2.offsetLeft;
+        const y2 = dot2.offsetTop;
+
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+
+        // Failsafe styling
+        line.setAttribute("stroke", this.app.isDark ? "#ffffff" : "#1d1d1f");
+        line.setAttribute("stroke-width", "2");
+        line.setAttribute("stroke-opacity", "0.6");
+        line.setAttribute("stroke-linecap", "round");
+
+        line.classList.add("ring-connector-line");
+        this.svgRingLayer.appendChild(line);
     }
 }
 
@@ -314,8 +400,9 @@ class GridMode {
         this.gridCursor.className = 'grid-cursor';
         // hidden by default
 
-        this.isOverlay = false;
-        this.overlayEndTime = 0;
+        // State Machine
+        this.currentState = STATE_NORMAL;
+        this.stateEndTime = 0;
         this.lastMinute = null;
     }
 
@@ -339,6 +426,7 @@ class GridMode {
         });
 
         this.lastMinute = new Date().getMinutes();
+        this.enterNormalState();
     }
 
     leave() {
@@ -350,38 +438,42 @@ class GridMode {
     }
 
     startDemo() {
-        this.triggerOverlay();
+        this.enterTimestampState();
     }
 
-    triggerOverlay() {
-        this.isOverlay = true;
-        this.overlayEndTime = Date.now() + 2000;
-        // Hide cursor during overlay
+    // --- State Management ---
+
+    enterNormalState() {
+        this.currentState = STATE_NORMAL;
+        this.gridCursor.style.opacity = '1';
+    }
+
+    enterTimestampState() {
+        this.currentState = STATE_TIMESTAMP;
+        this.stateEndTime = Date.now() + 2000;
+
+        // Hide cursor during timestamp overlay
         this.gridCursor.style.opacity = '0';
     }
 
     update(now) {
         const currentMinute = now.getMinutes();
         if (this.lastMinute !== null && currentMinute !== this.lastMinute) {
-            this.triggerOverlay();
+            this.enterTimestampState();
         }
         this.lastMinute = currentMinute;
 
-        if (this.isOverlay && Date.now() > this.overlayEndTime) {
-            this.isOverlay = false;
-            // Show cursor again
-            this.gridCursor.style.opacity = '1';
+        if (this.currentState === STATE_TIMESTAMP && Date.now() > this.stateEndTime) {
+            this.enterNormalState();
         }
     }
 
     render(now) {
         const s = now.getSeconds();
 
-        // 1. Manage Background Dots (Overlay only)
-        // We no longer set 'active-second' on background dots.
+        // 1. Reset standard dots
         this.dots.forEach((d) => {
-            if (d.classList.contains('active-second')) d.classList.remove('active-second'); // Cleanup old class
-
+            if (d.classList.contains('active-second')) d.classList.remove('active-second');
             if (d.classList.contains('overlay-on')) d.classList.remove('overlay-on');
 
             // Default scale
@@ -393,30 +485,31 @@ class GridMode {
         // Clear SVG
         while (this.svgLayer.firstChild) this.svgLayer.removeChild(this.svgLayer.firstChild);
 
-        if (this.isOverlay) {
-            this.renderOverlay(now);
+        if (this.currentState === STATE_TIMESTAMP) {
+            this.renderTimestampState(now);
         } else {
-            // Update Cursor Position
-            this.gridCursor.style.opacity = '1';
-
-            // Calculate position for second 's'
-            const c = s % 10;
-            const r = Math.floor(s / 10);
-            const x = c * 10 + 5;
-            const y = r * (100 / 6) + (100 / 12);
-
-            this.gridCursor.style.left = `${x}%`;
-            this.gridCursor.style.top = `${y}%`;
+            this.renderNormalState(now);
         }
     }
 
-    renderNormal(now) { } // Deprecated
+    renderNormalState(now) {
+        const s = now.getSeconds();
 
-    renderOverlay(now) {
+        // Update Cursor Position
+        this.gridCursor.style.opacity = '1';
+
+        // Calculate position for second 's'
+        const c = s % 10;
+        const r = Math.floor(s / 10);
+        const x = c * 10 + 5;
+        const y = r * (100 / 6) + (100 / 12);
+
+        this.gridCursor.style.left = `${x}%`;
+        this.gridCursor.style.top = `${y}%`;
+    }
+
+    renderTimestampState(now) {
         // Overlay logic sets class 'overlay-on' which style.css handles with scale(1),
-        // but we might want to scale it up or keep same?
-        // User wanted seamless numbers.
-        // Let's modify the overlay loop to set specific transform if needed.
         const h = now.getHours();
         const m = now.getMinutes();
         const displayH = (h % 12 || 12).toString();
