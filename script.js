@@ -235,11 +235,10 @@ class RingMode {
 
     enterTimestampState() {
         this.currentState = STATE_TIMESTAMP;
-        this.timestampEndTime = Date.now() + 2000;
-        this.cursorDot.style.opacity = '0'; // Hide cursor in timestamp details if desired?
-        // Original code hid cursor in timestamp mode: this.cursorDot.style.opacity = '0';
+        this.timestampEndTime = Date.now() + 4000;
+        console.log(`[RingMode] Entering Timestamp State. End time: ${this.timestampEndTime}`);
+        this.cursorDot.style.opacity = '0';
 
-        // Ensure accurate time update immediately
         this.updateTimeLabel(new Date());
     }
 
@@ -270,17 +269,19 @@ class RingMode {
     }
 
     render(now) {
-        // Reset visual states each frame (or optimized)
-        this.dots.forEach(d => {
-            // Keep layout static (layout is set in enter), just update visual class
-            if (d.className !== 'dot') d.className = 'dot';
-            d.style.boxShadow = '';
-            d.style.opacity = '';
-        });
-
         if (this.currentState === STATE_TIMESTAMP) {
             this.renderTimestampState(now);
         } else {
+            // Normal State: Clear any timestamp specific classes and render second cursor
+            this.dots.forEach(d => {
+                if (d.classList.contains('timestamp-dim')) d.classList.remove('timestamp-dim');
+                if (d.classList.contains('timestamp-highlight')) d.classList.remove('timestamp-highlight');
+                if (d.classList.contains('overlap')) d.classList.remove('overlap');
+
+                // Reset inline styles that might have been set
+                d.style.boxShadow = '';
+                d.style.opacity = '';
+            });
             this.renderNormalState(now);
         }
     }
@@ -306,57 +307,40 @@ class RingMode {
         const h = now.getHours();
         const m = now.getMinutes();
 
-        // Calculate Hour Block
-        // User requested 11 to be 50-54 (before last 5).
-        // Standard mapping: 12 is top.
-        // Logic: h=1 -> 0-4. h=11 -> 50-54. h=12/0 -> 55-59.
         let h12 = h % 12;
-        if (h12 === 0) h12 = 12; // Treat 0 and 12 as 12th block
-
-        // (12 -> 11, 1 -> 0, 11 -> 10)
+        if (h12 === 0) h12 = 12;
         const blockStartIndex = (h12 - 1) * 5;
-
-        const mDot = this.dots[m];
-
-        // Reset all dots to dim first
-        this.dots.forEach(d => {
-            d.classList.add('timestamp-dim');
-            d.classList.remove('timestamp-highlight');
-            d.classList.remove('overlap');
-        });
 
         // Clear existing connectors
         while (this.svgRingLayer.firstChild) this.svgRingLayer.removeChild(this.svgRingLayer.firstChild);
 
-        // Highlight Hour Block (5 dots) and Connect them
-        for (let i = 0; i < 5; i++) {
-            const dotIndex = (blockStartIndex + i) % 60;
-            const dot = this.dots[dotIndex];
-            if (dot) {
-                dot.classList.remove('timestamp-dim');
-                dot.classList.add('timestamp-highlight');
+        this.dots.forEach((d, idx) => {
+            const isHourBlock = (idx >= blockStartIndex && idx < blockStartIndex + 5);
+            const isMinute = (idx === m);
 
-                // Connect to next dot in the block (if not the last one)
-                if (i < 4) {
-                    const nextDotIndex = (blockStartIndex + i + 1) % 60;
-                    const nextDot = this.dots[nextDotIndex];
+            if (isHourBlock || isMinute) {
+                if (d.classList.contains('timestamp-dim')) d.classList.remove('timestamp-dim');
+                if (!d.classList.contains('timestamp-highlight')) d.classList.add('timestamp-highlight');
+
+                if (isHourBlock && isMinute) {
+                    if (!d.classList.contains('overlap')) d.classList.add('overlap');
+                } else {
+                    if (d.classList.contains('overlap')) d.classList.remove('overlap');
+                }
+
+                // Connections for hour block
+                if (isHourBlock && idx < blockStartIndex + 4) {
+                    const nextDot = this.dots[idx + 1];
                     if (nextDot) {
-                        this.drawRingLine(dot, nextDot);
+                        this.drawRingLine(d, nextDot);
                     }
                 }
+            } else {
+                if (!d.classList.contains('timestamp-dim')) d.classList.add('timestamp-dim');
+                if (d.classList.contains('timestamp-highlight')) d.classList.remove('timestamp-highlight');
+                if (d.classList.contains('overlap')) d.classList.remove('overlap');
             }
-        }
-
-        // Highlight Minute Dot
-        if (mDot) {
-            mDot.classList.remove('timestamp-dim');
-            mDot.classList.add('timestamp-highlight');
-
-            // Check for overlap
-            if (m >= blockStartIndex && m < blockStartIndex + 5) {
-                mDot.classList.add('overlap');
-            }
-        }
+        });
     }
 
     drawRingLine(dot1, dot2) {
@@ -374,8 +358,8 @@ class RingMode {
 
         // Failsafe styling
         line.setAttribute("stroke", this.app.isDark ? "#ffffff" : "#1d1d1f");
-        line.setAttribute("stroke-width", "2");
-        line.setAttribute("stroke-opacity", "0.6");
+        line.setAttribute("stroke-width", "3");
+        line.setAttribute("stroke-opacity", "0.8");
         line.setAttribute("stroke-linecap", "round");
 
         line.classList.add("ring-connector-line");
@@ -450,7 +434,8 @@ class GridMode {
 
     enterTimestampState() {
         this.currentState = STATE_TIMESTAMP;
-        this.stateEndTime = Date.now() + 2000;
+        this.stateEndTime = Date.now() + 4000;
+        console.log(`[GridMode] Entering Timestamp State. End time: ${this.stateEndTime}`);
 
         // Hide cursor during timestamp overlay
         this.gridCursor.style.opacity = '0';

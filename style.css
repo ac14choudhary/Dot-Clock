@@ -106,14 +106,17 @@ body {
 
 /* Timestamp mode styles */
 .dot.timestamp-dim {
-    opacity: 0.1;
+    opacity: 0.4;
 }
 
 .dot.timestamp-highlight {
     background-color: var(--dot-timestamp-color);
-    transform: translate(-50%, -50%) scale(1.5);
+    transform: translate(-50%, -50%) scale(1.8);
+    /* Slightly larger */
     z-index: 20;
     opacity: 1;
+    box-shadow: 0 0 10px var(--dot-timestamp-color);
+    /* Added glow */
 }
 
 /* Overlap handling - when H and M are same */
