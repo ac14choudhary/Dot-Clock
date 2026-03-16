@@ -1,0 +1,717 @@
+<!--
+  Dot Clock — Self-contained Webflow Embed
+  Paste this entire block into a Webflow "Embed" element.
+-->
+<style>
+  /* === Dot Clock Scoped Styles === */
+  .dc-root {
+    --dc-bg-color: transparent;
+    --dc-text-color: #1d1d1f;
+    --dc-dot-color: rgba(29, 29, 31, 0.2);
+    --dc-dot-active-color: #0071e3;
+    --dc-dot-timestamp-color: #1d1d1f;
+    --dc-control-bg: rgba(255, 255, 255, 0.8);
+    --dc-control-border: rgba(0, 0, 0, 0.1);
+    --dc-clock-size: 380px;
+    --dc-dot-size: calc(var(--dc-clock-size) / 40);
+  }
+
+  .dc-root[data-theme="dark"] {
+    --dc-bg-color: transparent;
+    --dc-text-color: #f5f5f7;
+    --dc-dot-color: rgba(245, 245, 247, 0.2);
+    --dc-dot-active-color: #2997ff;
+    --dc-dot-timestamp-color: #ffffff;
+    --dc-control-bg: rgba(28, 28, 30, 0.8);
+    --dc-control-border: rgba(255, 255, 255, 0.1);
+  }
+
+  .dc-root {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--dc-bg-color);
+    color: var(--dc-text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 500px;
+    height: 500px;
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    box-sizing: border-box;
+    border-radius: 10px;
+  }
+
+  .dc-root .app-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+  }
+
+  .dc-root .clock-container {
+    position: relative;
+    width: var(--dc-clock-size);
+    height: var(--dc-clock-size);
+  }
+
+  .dc-root .dot-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+  }
+
+  .dc-root .dot {
+    position: absolute;
+    width: var(--dc-dot-size);
+    height: var(--dc-dot-size);
+    background-color: var(--dc-dot-color);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition:
+      left 0.6s ease-in-out,
+      top 0.6s ease-in-out,
+      transform 0.4s ease,
+      background-color 0.2s ease,
+      opacity 0.2s ease;
+    will-change: left, top, transform;
+  }
+
+  /* Grid Mode */
+  .dc-root .clock-grid {
+    position: relative;
+    width: var(--dc-clock-size);
+    height: calc(var(--dc-clock-size) * 0.6);
+    padding: 20px;
+    margin: 0 auto;
+  }
+
+  .dc-root .clock-grid .dot {
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  .dc-root .dot.active {
+    background-color: var(--dc-dot-active-color);
+    transform: translate(-50%, -50%) scale(1.3);
+    z-index: 10;
+    transition: none;
+  }
+
+  /* Timestamp mode */
+  .dc-root .dot.timestamp-dim { opacity: 0.1; }
+
+  .dc-root .dot.timestamp-highlight {
+    background-color: var(--dc-dot-timestamp-color);
+    transform: translate(-50%, -50%) scale(1.5);
+    z-index: 20;
+    opacity: 1;
+  }
+
+  .dc-root .dot.timestamp-highlight.overlap {
+    box-shadow: 0 0 10px var(--dc-dot-timestamp-color);
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+
+  .dc-root .time-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 2rem;
+    font-weight: 200;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    letter-spacing: 2px;
+  }
+
+  .dc-root .time-label.visible { opacity: 1; }
+
+  /* Controls */
+  .dc-root .controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    opacity: 0.4;
+    transition: opacity 0.3s ease;
+  }
+  .dc-root .controls:hover { opacity: 1; }
+
+  /* Mode content */
+  .dc-root .mode-content {
+    min-height: var(--dc-clock-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--dc-clock-size);
+  }
+
+  /* Navigation header */
+  .dc-root .nav-header {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: var(--dc-clock-size);
+    height: 40px;
+  }
+
+  .dc-root .nav-header .dc-theme-toggle {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 1rem;
+    background: var(--dc-control-bg);
+    border: 1px solid var(--dc-control-border);
+    border-radius: 50%;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+  }
+
+  .dc-root .theme-icon-container {
+    position: relative;
+    width: 20px;
+    height: 20px;
+  }
+
+  .dc-root .theme-icon {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    color: var(--dc-text-color);
+  }
+
+  .dc-root .sun { opacity: 1; transform: rotate(0deg) scale(1); }
+  .dc-root .moon { opacity: 0; transform: rotate(90deg) scale(0.5); }
+
+  .dc-root[data-theme="dark"] .sun { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+  .dc-root[data-theme="dark"] .moon { opacity: 1; transform: rotate(0deg) scale(1); }
+
+  .dc-root .mode-tabs {
+    display: flex;
+    background: var(--dc-control-bg);
+    padding: 4px;
+    border-radius: 20px;
+    border: 1px solid var(--dc-control-border);
+    backdrop-filter: blur(10px);
+  }
+
+  .dc-root .tab-btn {
+    background: none;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 16px;
+    color: var(--dc-text-color);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+  }
+
+  .dc-root .tab-btn.active {
+    background-color: var(--dc-bg-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    opacity: 1;
+  }
+
+  /* Grid connector layer */
+  .dc-root .grid-connector-layer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .dc-root .connector-line {
+    stroke: var(--dc-text-color);
+    stroke-width: calc((var(--dc-clock-size) - 108px) / 10);
+    stroke-linecap: round;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+  }
+
+  .dc-root[data-theme="dark"] .connector-line {
+    stroke: var(--dc-text-color);
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+    opacity: 1;
+  }
+
+  .dc-root .clock-grid .dot.active-second {
+    background-color: var(--dc-dot-active-color) !important;
+    transform: translate(-50%, -50%) scale(1.3);
+    z-index: 20;
+  }
+
+  .dc-root .clock-grid .dot.overlay-on {
+    background-color: var(--dc-text-color);
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .dc-root .grid-cursor {
+    position: absolute;
+    width: var(--dc-dot-size);
+    height: var(--dc-dot-size);
+    background-color: var(--dc-dot-active-color);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(1.3);
+    z-index: 30;
+    pointer-events: none;
+    transition: left 0.1s ease, top 0.1s ease;
+  }
+
+  .dc-root .control-btn {
+    background: var(--dc-control-bg);
+    border: 1px solid var(--dc-control-border);
+    color: var(--dc-text-color);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease;
+    backdrop-filter: blur(10px);
+  }
+  .dc-root .control-btn:active { transform: scale(0.95); }
+
+  .dc-root .control-group {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--dc-text-color);
+  }
+
+  .dc-root .text-btn {
+    background: none;
+    border: none;
+    color: var(--dc-dot-active-color);
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+  }
+  .dc-root .text-btn:hover { text-decoration: underline; }
+
+  /* No media query needed — fixed 500x500 embed */
+</style>
+
+<div class="dc-root" id="dc-root">
+  <div class="app-container">
+    <header class="nav-header">
+      <nav class="mode-tabs">
+        <button class="tab-btn active" data-mode="ring">Ring</button>
+        <button class="tab-btn" data-mode="grid">Grid</button>
+      </nav>
+      <button class="dc-theme-toggle" title="Toggle Theme">
+        <div class="theme-icon-container">
+          <svg class="theme-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <svg class="theme-icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </div>
+      </button>
+    </header>
+
+    <div class="mode-content">
+      <!-- Injected by JS -->
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <button class="text-btn dc-demo-btn">Demo Minute</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  // Scoped — all queries run against the embed root
+  const ROOT = document.getElementById('dc-root');
+
+  const FONT_3x5 = {
+    '0': [[1,1,1],[1,0,1],[1,0,1],[1,0,1],[1,1,1]],
+    '1': [[0,1,0],[1,1,0],[0,1,0],[0,1,0],[1,1,1]],
+    '1_narrow': [[1],[1],[1],[1],[1]],
+    '2': [[1,1,1],[0,0,1],[1,1,1],[1,0,0],[1,1,1]],
+    '3': [[1,1,1],[0,0,1],[1,1,1],[0,0,1],[1,1,1]],
+    '4': [[1,0,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+    '5': [[1,1,1],[1,0,0],[1,1,1],[0,0,1],[1,1,1]],
+    '6': [[1,1,1],[1,0,0],[1,1,1],[1,0,1],[1,1,1]],
+    '7': [[1,1,1],[0,0,1],[0,1,0],[0,1,0],[0,1,0]],
+    '8': [[1,1,1],[1,0,1],[1,1,1],[1,0,1],[1,1,1]],
+    '9': [[1,1,1],[1,0,1],[1,1,1],[0,0,1],[0,0,1]],
+    ':': [[0],[1],[0],[1],[0]]
+  };
+
+  class DotClockApp {
+    constructor() {
+      this.currentMode = null;
+      this.container = ROOT.querySelector('.mode-content');
+      this.tabs = ROOT.querySelectorAll('.tab-btn');
+      this.clockContainer = null;
+      this.dotRingContainer = null;
+      this.timeLabel = null;
+      this.dots = [];
+      this.isDark = false;
+      this.themeToggle = ROOT.querySelector('.dc-theme-toggle');
+      this.demoBtn = ROOT.querySelector('.dc-demo-btn');
+      this.init();
+    }
+
+    init() {
+      this.container.innerHTML = '<div class="clock-container"><div class="dot-ring"></div><div class="time-label"></div></div>';
+      this.clockContainer = this.container.querySelector('.clock-container');
+      this.dotRingContainer = this.container.querySelector('.dot-ring');
+      this.timeLabel = this.container.querySelector('.time-label');
+
+      for (let i = 0; i < 60; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        dot.dataset.index = i;
+        this.dotRingContainer.appendChild(dot);
+        this.dots.push(dot);
+      }
+
+      this.bindEvents();
+      this.loadPreferences();
+      this.modes = { 'ring': new RingMode(this), 'grid': new GridMode(this) };
+      this.switchMode('ring');
+      requestAnimationFrame((t) => this.tick(t));
+    }
+
+    bindEvents() {
+      this.tabs.forEach(tab => {
+        tab.addEventListener('click', () => this.switchMode(tab.dataset.mode));
+      });
+      this.themeToggle.addEventListener('click', () => {
+        this.isDark = !this.isDark;
+        this.applyTheme();
+      });
+      this.demoBtn.addEventListener('click', () => {
+        if (this.currentMode && this.currentMode.startDemo) this.currentMode.startDemo();
+      });
+    }
+
+    switchMode(modeName) {
+      if (this.currentMode === this.modes[modeName]) return;
+      this.tabs.forEach(t => t.classList.remove('active'));
+      const activeTab = ROOT.querySelector(`.tab-btn[data-mode="${modeName}"]`);
+      if (activeTab) activeTab.classList.add('active');
+
+      this.dots.forEach(dot => { dot.style.transitionDelay = `${Math.random() * 0.3}s`; });
+      setTimeout(() => { this.dots.forEach(dot => { dot.style.transitionDelay = '0s'; }); }, 800);
+
+      if (this.currentMode) this.currentMode.leave();
+      this.currentMode = this.modes[modeName];
+      this.currentMode.enter();
+      this.clockContainer.className = `clock-container ${modeName}-mode`;
+    }
+
+    loadPreferences() {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) this.isDark = true;
+      this.applyTheme();
+    }
+
+    applyTheme() { ROOT.setAttribute('data-theme', this.isDark ? 'dark' : 'light'); }
+
+    tick(t) {
+      const now = new Date();
+      if (this.currentMode) { this.currentMode.update(now); this.currentMode.render(now); }
+      requestAnimationFrame((time) => this.tick(time));
+    }
+  }
+
+  class RingMode {
+    constructor(app) {
+      this.app = app;
+      this.dots = app.dots;
+      this.cursorDot = document.createElement('div');
+      this.cursorDot.className = 'dot active';
+      this.cursorDot.style.opacity = '0';
+      this.cursorDot.style.zIndex = '50';
+      app.dotRingContainer.appendChild(this.cursorDot);
+      this.isTimestampMode = false;
+      this.timestampEndTime = 0;
+      this.lastMinute = null;
+    }
+
+    enter() {
+      const r = 48;
+      this.dots.forEach((dot, i) => {
+        const angleDeg = i * 6;
+        const angleRad = (angleDeg - 90) * (Math.PI / 180);
+        const x = 50 + r * Math.cos(angleRad);
+        const y = 50 + r * Math.sin(angleRad);
+        dot.style.left = `${x}%`;
+        dot.style.top = `${y}%`;
+        dot.style.transform = 'translate(-50%, -50%) scale(1)';
+        dot.className = 'dot';
+      });
+      this.cursorDot.style.opacity = '1';
+      this.lastMinute = new Date().getMinutes();
+    }
+
+    leave() {
+      this.cursorDot.style.opacity = '0';
+      this.app.timeLabel.classList.remove('visible');
+    }
+
+    startDemo() { this.triggerTimestampEffect(new Date()); }
+
+    triggerTimestampEffect(date) {
+      this.isTimestampMode = true;
+      this.timestampEndTime = Date.now() + 2000;
+      const h = date.getHours();
+      const m = date.getMinutes();
+      const displayH = h % 12 || 12;
+      const displayM = m.toString().padStart(2, '0');
+      this.app.timeLabel.textContent = `${displayH}:${displayM}`;
+      this.app.timeLabel.classList.add('visible');
+      this.cursorDot.style.opacity = '0';
+    }
+
+    update(now) {
+      const currentMinute = now.getMinutes();
+      if (this.lastMinute !== null && currentMinute !== this.lastMinute) this.triggerTimestampEffect(now);
+      this.lastMinute = currentMinute;
+      if (this.isTimestampMode && Date.now() > this.timestampEndTime) {
+        this.isTimestampMode = false;
+        this.app.timeLabel.classList.remove('visible');
+        this.cursorDot.style.opacity = '1';
+      }
+    }
+
+    render(now) {
+      this.dots.forEach(d => {
+        if (d.className !== 'dot') d.className = 'dot';
+        d.style.boxShadow = '';
+        d.style.opacity = '';
+      });
+      if (this.isTimestampMode) this.renderTimestampMode(now);
+      else this.renderNormalMode(now);
+    }
+
+    renderNormalMode(now) {
+      const ms = now.getMilliseconds();
+      const s = now.getSeconds();
+      const totalSeconds = s + (ms / 1000);
+      const angleDeg = totalSeconds * 6;
+      const angleRad = (angleDeg - 90) * (Math.PI / 180);
+      const r = 48;
+      const x = 50 + r * Math.cos(angleRad);
+      const y = 50 + r * Math.sin(angleRad);
+      if (this.cursorDot) {
+        this.cursorDot.style.left = `${x}%`;
+        this.cursorDot.style.top = `${y}%`;
+      }
+    }
+
+    renderTimestampMode(now) {
+      const h = now.getHours();
+      const m = now.getMinutes();
+      let hRaw = (h % 12) * 5 + (m / 12);
+      const hIndex = Math.round(hRaw) % 60;
+      const mDot = this.dots[m];
+      const hDot = this.dots[hIndex];
+      if (mDot) mDot.classList.add('timestamp-highlight');
+      if (hDot) hDot.classList.add('timestamp-highlight');
+      this.dots.forEach(d => { if (d !== mDot && d !== hDot) d.classList.add('timestamp-dim'); });
+      if (m === hIndex && mDot) mDot.classList.add('overlap');
+    }
+  }
+
+  class GridMode {
+    constructor(app) {
+      this.app = app;
+      this.dots = app.dots;
+      this.svgLayer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      this.svgLayer.classList.add('grid-connector-layer');
+      this.gridCursor = document.createElement('div');
+      this.gridCursor.className = 'grid-cursor';
+      this.isOverlay = false;
+      this.overlayEndTime = 0;
+      this.lastMinute = null;
+    }
+
+    enter() {
+      this.app.clockContainer.appendChild(this.svgLayer);
+      this.app.clockContainer.appendChild(this.gridCursor);
+      this.dots.forEach((dot, i) => {
+        const c = i % 10;
+        const r = Math.floor(i / 10);
+        const x = c * 10 + 5;
+        const y = r * (100 / 6) + (100 / 12);
+        dot.style.left = `${x}%`;
+        dot.style.top = `${y}%`;
+        dot.style.transform = 'translate(-50%, -50%) scale(1)';
+      });
+      this.lastMinute = new Date().getMinutes();
+    }
+
+    leave() {
+      if (this.svgLayer.parentNode) this.svgLayer.parentNode.removeChild(this.svgLayer);
+      if (this.gridCursor.parentNode) this.gridCursor.parentNode.removeChild(this.gridCursor);
+      while (this.svgLayer.firstChild) this.svgLayer.removeChild(this.svgLayer.firstChild);
+    }
+
+    startDemo() { this.triggerOverlay(); }
+
+    triggerOverlay() {
+      this.isOverlay = true;
+      this.overlayEndTime = Date.now() + 2000;
+      this.gridCursor.style.opacity = '0';
+    }
+
+    update(now) {
+      const currentMinute = now.getMinutes();
+      if (this.lastMinute !== null && currentMinute !== this.lastMinute) this.triggerOverlay();
+      this.lastMinute = currentMinute;
+      if (this.isOverlay && Date.now() > this.overlayEndTime) {
+        this.isOverlay = false;
+        this.gridCursor.style.opacity = '1';
+      }
+    }
+
+    render(now) {
+      const s = now.getSeconds();
+      this.dots.forEach((d) => {
+        if (d.classList.contains('active-second')) d.classList.remove('active-second');
+        if (d.classList.contains('overlay-on')) d.classList.remove('overlay-on');
+        if (d.style.transform !== 'translate(-50%, -50%) scale(1)') d.style.transform = 'translate(-50%, -50%) scale(1)';
+      });
+      while (this.svgLayer.firstChild) this.svgLayer.removeChild(this.svgLayer.firstChild);
+
+      if (this.isOverlay) {
+        this.renderOverlay(now);
+      } else {
+        this.gridCursor.style.opacity = '1';
+        const c = s % 10;
+        const r = Math.floor(s / 10);
+        const x = c * 10 + 5;
+        const y = r * (100 / 6) + (100 / 12);
+        this.gridCursor.style.left = `${x}%`;
+        this.gridCursor.style.top = `${y}%`;
+      }
+    }
+
+    renderOverlay(now) {
+      const h = now.getHours();
+      const m = now.getMinutes();
+      const displayH = (h % 12 || 12).toString();
+      const displayM = m.toString().padStart(2, '0');
+      let chars = [];
+      if (displayH.length > 1) { chars.push(displayH[0], displayH[1]); }
+      else { chars.push(displayH[0]); }
+      if (displayH.length < 2) { chars.push(':'); }
+      chars.push(displayM[0], displayM[1]);
+
+      let sequence = [];
+      let totalW = 0;
+      chars.forEach(c => {
+        let key = c;
+        let w = 3;
+        if (c === ':') { w = 1; }
+        else if (c === '1') { key = '1_narrow'; w = 1; }
+        sequence.push({ key, w });
+        totalW += w;
+      });
+
+      let cursorX = Math.floor((10 - totalW) / 2);
+      if (cursorX < 0) cursorX = 0;
+
+      const getCenter = (tx, ty) => {
+        if (tx < 0 || tx >= 10 || ty < 0 || ty >= 6) return null;
+        const idx = ty * 10 + tx;
+        const dot = this.dots[idx];
+        if (!dot) return null;
+        return { x: dot.offsetLeft + dot.offsetWidth / 2, y: dot.offsetTop + dot.offsetHeight / 2 };
+      };
+
+      sequence.forEach(item => {
+        const matrix = FONT_3x5[item.key];
+        if (!matrix) return;
+        for (let r = 0; r < 5; r++) {
+          for (let c = 0; c < item.w; c++) {
+            if (matrix[r][c] === 1) {
+              const targetX = cursorX + c;
+              const targetY = r + 1;
+              if (targetX >= 0 && targetX < 10 && targetY < 6) {
+                const index = targetY * 10 + targetX;
+                if (this.dots[index]) {
+                  this.dots[index].classList.add('overlay-on');
+                  this.dots[index].style.transform = 'translate(-50%, -50%) scale(1.0)';
+                }
+              }
+            }
+          }
+        }
+        for (let r = 0; r < 5; r++) {
+          for (let c = 0; c < item.w; c++) {
+            if (matrix[r][c] === 1) {
+              const startXVal = cursorX + c;
+              const startYVal = r + 1;
+              const p1 = getCenter(startXVal, startYVal);
+              if (!p1) continue;
+              if (c + 1 < item.w && matrix[r][c + 1] === 1) {
+                const p2 = getCenter(startXVal + 1, startYVal);
+                if (p2) this.drawLine(p1.x, p1.y, p2.x, p2.y);
+              }
+              if (r + 1 < 5 && matrix[r + 1][c] === 1) {
+                const p2 = getCenter(startXVal, startYVal + 1);
+                if (p2) this.drawLine(p1.x, p1.y, p2.x, p2.y);
+              }
+            }
+          }
+        }
+        cursorX += item.w;
+      });
+    }
+
+    drawLine(x1, y1, x2, y2) {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.classList.add("connector-line");
+      this.svgLayer.appendChild(line);
+    }
+  }
+
+  // Boot
+  new DotClockApp();
+})();
+</script>
